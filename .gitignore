@@ -15,6 +15,9 @@ vds_click_model_pack/
 vds_click_model_pack.zip
 .tmp_manus_remote/
 2026-*.png
+!samples/
+!samples/original_screenshots/
+!samples/original_screenshots/2026-*.png
 orange_bot_eval.py
 download_models.bat
 VDS_README.md
