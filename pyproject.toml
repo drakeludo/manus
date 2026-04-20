@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "orange-bot"
+version = "0.1.0"
+description = "Windows bot for Majestic RP orange harvesting."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "keyboard>=0.13.5",
+    "numpy>=1.24.0",
+    "onnx>=1.16.0",
+    "onnxruntime>=1.19.0",
+    "opencv-python>=4.8.0",
+    "Pillow>=10.0.0",
+    "torch>=2.2.0",
+    "ultralytics>=8.3.0",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
