@@ -14,8 +14,26 @@ class ClickPoint:
     radius: int = 16
 
 
+class SEBlock(nn.Module):
+    def __init__(self, channel, reduction=16):
+        super().__init__()
+        self.avg_pool = nn.AdaptiveAvgPool2d(1)
+        self.fc = nn.Sequential(
+            nn.Linear(channel, channel // reduction, bias=False),
+            nn.SiLU(inplace=True),
+            nn.Linear(channel // reduction, channel, bias=False),
+            nn.Sigmoid()
+        )
+
+    def forward(self, x):
+        b, c, _, _ = x.size()
+        y = self.avg_pool(x).view(b, c)
+        y = self.fc(y).view(b, c, 1, 1)
+        return x * y.expand_as(x)
+
+
 class ConvBlock(nn.Module):
-    def __init__(self, in_channels: int, out_channels: int, stride: int = 1):
+    def __init__(self, in_channels: int, out_channels: int, stride: int = 1, use_se: bool = False):
         super().__init__()
         self.block = nn.Sequential(
             nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=stride, padding=1, bias=False),
@@ -24,6 +42,7 @@ class ConvBlock(nn.Module):
             nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1, bias=False),
             nn.BatchNorm2d(out_channels),
             nn.SiLU(inplace=True),
+            SEBlock(out_channels) if use_se else nn.Identity()
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -31,10 +50,10 @@ class ConvBlock(nn.Module):
 
 
 class UpBlock(nn.Module):
-    def __init__(self, in_channels: int, skip_channels: int, out_channels: int):
+    def __init__(self, in_channels: int, skip_channels: int, out_channels: int, use_se: bool = False):
         super().__init__()
         self.up = nn.ConvTranspose2d(in_channels, out_channels, kernel_size=2, stride=2)
-        self.fuse = ConvBlock(out_channels + skip_channels, out_channels)
+        self.fuse = ConvBlock(out_channels + skip_channels, out_channels, use_se=use_se)
 
     def forward(self, x: torch.Tensor, skip: torch.Tensor) -> torch.Tensor:
         x = self.up(x)
@@ -45,22 +64,19 @@ class UpBlock(nn.Module):
 
 
 class OrangeClickNet(nn.Module):
-    def __init__(self, base_channels: int = 24):
+    def __init__(self, base_channels: int = 16):
         super().__init__()
         c1 = base_channels
         c2 = base_channels * 2
         c3 = base_channels * 4
-        c4 = base_channels * 6
 
-        self.stem = ConvBlock(3, c1)
-        self.down1 = ConvBlock(c1, c2, stride=2)
-        self.down2 = ConvBlock(c2, c3, stride=2)
-        self.down3 = ConvBlock(c3, c4, stride=2)
-        self.bottleneck = ConvBlock(c4, c4)
+        self.stem = ConvBlock(3, c1, use_se=True)
+        self.down1 = ConvBlock(c1, c2, stride=2, use_se=True)
+        self.down2 = ConvBlock(c2, c3, stride=2, use_se=True)
+        self.bottleneck = ConvBlock(c3, c3, use_se=True)
 
-        self.up2 = UpBlock(c4, c3, c3)
-        self.up1 = UpBlock(c3, c2, c2)
-        self.up0 = UpBlock(c2, c1, c1)
+        self.up1 = UpBlock(c3, c2, c2, use_se=True)
+        self.up0 = UpBlock(c2, c1, c1, use_se=True)
 
         self.center_head = nn.Conv2d(c1, 1, kernel_size=1)
         self.mask_head = nn.Conv2d(c1, 1, kernel_size=1)
@@ -69,11 +85,9 @@ class OrangeClickNet(nn.Module):
         stem = self.stem(x)
         down1 = self.down1(stem)
         down2 = self.down2(down1)
-        down3 = self.down3(down2)
-        bottleneck = self.bottleneck(down3)
+        bottleneck = self.bottleneck(down2)
 
-        up2 = self.up2(bottleneck, down2)
-        up1 = self.up1(up2, down1)
+        up1 = self.up1(bottleneck, down1)
         up0 = self.up0(up1, stem)
 
         return {

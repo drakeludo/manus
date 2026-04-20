@@ -1,5 +1,5 @@
 import time
-import winsound
+# import winsound
 from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
@@ -48,7 +48,8 @@ class OrangeBot:
         self._detector_status_logged = False
 
     def beep(self, frequency: int, duration: int) -> None:
-        winsound.Beep(frequency, duration)
+        # winsound.Beep(frequency, duration)
+        pass
 
     def run_cycle(self) -> None:
         controls = self.config.controls

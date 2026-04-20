@@ -1,6 +1,16 @@
 import ctypes
 import time
-from ctypes import wintypes
+import sys
+
+# Mock wintypes for Linux
+if sys.platform != "win32":
+    class MockWintypes:
+        LONG = ctypes.c_long
+        DWORD = ctypes.c_ulong
+        WORD = ctypes.c_ushort
+    wintypes = MockWintypes()
+else:
+    from ctypes import wintypes
 
 
 INPUT_MOUSE = 0
@@ -49,10 +59,18 @@ class INPUT(ctypes.Structure):
     _fields_ = (("type", wintypes.DWORD), ("u", INPUT_UNION))
 
 
-user32 = ctypes.WinDLL("user32", use_last_error=True)
+# Safe user32 loading
+user32 = None
+if sys.platform == "win32":
+    try:
+        user32 = ctypes.WinDLL("user32", use_last_error=True)
+    except Exception:
+        user32 = None
 
 
 def send_input(*inputs: INPUT) -> None:
+    if user32 is None:
+        return
     input_array = (INPUT * len(inputs))(*inputs)
     user32.SendInput(len(inputs), input_array, ctypes.sizeof(INPUT))
 
@@ -92,7 +110,8 @@ def key_up(key: str) -> None:
 
 
 def click_at(x: int, y: int, settle_delay: float = 0.0, press_delay: float = 0.0) -> None:
-    user32.SetCursorPos(x, y)
+    if user32 is not None:
+        user32.SetCursorPos(x, y)
     if settle_delay > 0:
         time.sleep(settle_delay)
     send_input(INPUT(type=INPUT_MOUSE, mi=MOUSEINPUT(0, 0, 0, MOUSEEVENTF_LEFTDOWN, 0, None)))

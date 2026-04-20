@@ -69,8 +69,8 @@ class CustomDetectorConfig:
     enabled: bool = True
     input_width: int = 960
     input_height: int = 544
-    confidence_threshold: float = 0.18
-    mask_threshold: float = 0.18
+    confidence_threshold: float = 0.45
+    mask_threshold: float = 0.40
     mask_weight: float = 0.35
     min_peak_distance: int = 18
     peak_kernel_size: int = 5
